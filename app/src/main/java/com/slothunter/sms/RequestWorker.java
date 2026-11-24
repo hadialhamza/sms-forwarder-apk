@@ -26,6 +26,7 @@ public class RequestWorker extends Worker {
     public static final String DATA_PAYLOAD = "payload";
     public static final String DATA_METHOD = "method";
     public static final String DATA_MAX_RETRIES = "max_retries";
+    public static final String DATA_TIMESTAMP = "timestamp";
 
     private static final int DEFAULT_MAX_RETRIES = 10;
 
@@ -40,16 +41,25 @@ public class RequestWorker extends Worker {
         String url = input.getString(DATA_URL);
         String payload = input.getString(DATA_PAYLOAD);
         String method = input.getString(DATA_METHOD);
+        long timestamp = input.getLong(DATA_TIMESTAMP, 0);
         int maxRetries = input.getInt(DATA_MAX_RETRIES, DEFAULT_MAX_RETRIES);
 
         if (url == null || url.trim().isEmpty()) {
             Log.e(TAG, "Empty target URL, failing work.");
+            if (timestamp > 0) {
+                GatewaySettings.getInstance(getApplicationContext())
+                        .updateEventStatus(timestamp, GatewaySettings.STATUS_FAILED);
+            }
             return Result.failure();
         }
 
         int runAttempt = getRunAttemptCount();
         if (runAttempt > maxRetries) {
             Log.e(TAG, "Exceeded max retries (" + maxRetries + "). Failing task.");
+            if (timestamp > 0) {
+                GatewaySettings.getInstance(getApplicationContext())
+                        .updateEventStatus(timestamp, GatewaySettings.STATUS_FAILED);
+            }
             return Result.failure();
         }
 
@@ -59,6 +69,10 @@ public class RequestWorker extends Worker {
 
         if (Request.RESULT_SUCCESS.equals(result)) {
             Log.i(TAG, "SMS successfully forwarded to endpoint.");
+            if (timestamp > 0) {
+                GatewaySettings.getInstance(getApplicationContext())
+                        .updateEventStatus(timestamp, GatewaySettings.STATUS_DELIVERED);
+            }
             return Result.success();
         }
 
@@ -68,6 +82,10 @@ public class RequestWorker extends Worker {
         }
 
         Log.e(TAG, "Permanent failure during dispatch.");
+        if (timestamp > 0) {
+            GatewaySettings.getInstance(getApplicationContext())
+                    .updateEventStatus(timestamp, GatewaySettings.STATUS_FAILED);
+        }
         return Result.failure();
     }
 
@@ -75,10 +93,15 @@ public class RequestWorker extends Worker {
      * Enqueues a OneTimeWorkRequest to dispatch the payload to the given URL.
      */
     public static void enqueue(Context context, String url, String payload, String method) {
+        enqueue(context, url, payload, method, 0);
+    }
+
+    public static void enqueue(Context context, String url, String payload, String method, long timestamp) {
         Data data = new Data.Builder()
                 .putString(DATA_URL, url)
                 .putString(DATA_PAYLOAD, payload)
                 .putString(DATA_METHOD, method)
+                .putLong(DATA_TIMESTAMP, timestamp)
                 .putInt(DATA_MAX_RETRIES, DEFAULT_MAX_RETRIES)
                 .build();
 
@@ -93,6 +116,6 @@ public class RequestWorker extends Worker {
                 .build();
 
         WorkManager.getInstance(context).enqueue(workRequest);
-        Log.i(TAG, "Enqueued WorkRequest for URL: " + url);
+        Log.i(TAG, "Enqueued WorkRequest for URL: " + url + " (Timestamp: " + timestamp + ")");
     }
 }

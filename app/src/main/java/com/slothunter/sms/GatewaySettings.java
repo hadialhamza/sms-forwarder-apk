@@ -3,8 +3,15 @@ package com.slothunter.sms;
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.util.ArrayList;
+import java.util.List;
+
 /**
- * Manages configuration and persistence for Slot Hunter SMS Gateway.
+ * Manages configuration, persistence, and dispatch event history for Slot Hunter SMS Gateway.
  */
 public class GatewaySettings {
 
@@ -14,6 +21,13 @@ public class GatewaySettings {
     public static final String KEY_SIM1_NUMBER = "key_sim1_number";
     public static final String KEY_SIM2_NUMBER = "key_sim2_number";
     public static final String KEY_FIREBASE_URL = "key_firebase_url";
+    public static final String KEY_SMS_EVENTS = "key_sms_events_history";
+
+    public static final String STATUS_SENDING = "SENDING";
+    public static final String STATUS_DELIVERED = "DELIVERED";
+    public static final String STATUS_FAILED = "FAILED";
+
+    public static final int MAX_EVENTS_HISTORY = 3;
 
     public static final String DEFAULT_FIREBASE_URL =
             "https://ivac-gateway-default-rtdb.asia-southeast1.firebasedatabase.app/sms/";
@@ -27,6 +41,10 @@ public class GatewaySettings {
 
     public static GatewaySettings getInstance(Context context) {
         return new GatewaySettings(context);
+    }
+
+    public SharedPreferences getPrefs() {
+        return prefs;
     }
 
     public boolean isForwardingEnabled() {
@@ -72,7 +90,6 @@ public class GatewaySettings {
 
     /**
      * Resolves the configured phone number for a given SIM slot index (1 or 2).
-     * Strictly clamps to SIM 1 or SIM 2.
      */
     public String getPhoneNumberForSlot(int slotIndex) {
         if (slotIndex == 2) {
@@ -81,7 +98,6 @@ public class GatewaySettings {
                 return sim2;
             }
         }
-        // Default to SIM 1 for slot 1 or fallback
         String sim1 = getSim1Number();
         if (!sim1.isEmpty()) {
             return sim1;
@@ -91,7 +107,6 @@ public class GatewaySettings {
 
     /**
      * Constructs the direct Firebase REST PUT URL for a target phone number.
-     * Example: https://.../sms/01765060631.json (NO nested timestamp object key).
      */
     public String buildTargetUrl(String cleanPhoneNumber) {
         String base = getFirebaseUrl();
@@ -109,10 +124,8 @@ public class GatewaySettings {
         if (raw == null) {
             return "";
         }
-        // Remove all spaces, dashes, parentheses
         String cleaned = raw.replaceAll("[\\s\\-\\(\\)]", "").trim();
 
-        // Strip leading +88 or 88
         if (cleaned.startsWith("+880")) {
             cleaned = cleaned.substring(3);
         } else if (cleaned.startsWith("+88")) {
@@ -122,5 +135,109 @@ public class GatewaySettings {
         }
 
         return cleaned;
+    }
+
+    // ==========================================
+    // SMS EVENT HISTORY (MAX 3 ITEMS)
+    // ==========================================
+
+    public static class SmsEvent {
+        public String sender;
+        public String text;
+        public String simSlot;
+        public long timestamp;
+        public String status;
+        public String targetUrl;
+        public String payload;
+
+        public SmsEvent() {}
+
+        public SmsEvent(String sender, String text, String simSlot, long timestamp, String status, String targetUrl, String payload) {
+            this.sender = sender;
+            this.text = text;
+            this.simSlot = simSlot;
+            this.timestamp = timestamp;
+            this.status = status;
+            this.targetUrl = targetUrl;
+            this.payload = payload;
+        }
+
+        public JSONObject toJsonObject() {
+            JSONObject json = new JSONObject();
+            try {
+                json.put("sender", sender);
+                json.put("text", text);
+                json.put("simSlot", simSlot);
+                json.put("timestamp", timestamp);
+                json.put("status", status);
+                json.put("targetUrl", targetUrl);
+                json.put("payload", payload);
+            } catch (JSONException ignored) {}
+            return json;
+        }
+
+        public static SmsEvent fromJsonObject(JSONObject json) {
+            if (json == null) return null;
+            SmsEvent event = new SmsEvent();
+            event.sender = json.optString("sender", "UNKNOWN");
+            event.text = json.optString("text", "");
+            event.simSlot = json.optString("simSlot", "SIM 1");
+            event.timestamp = json.optLong("timestamp", 0);
+            event.status = json.optString("status", STATUS_SENDING);
+            event.targetUrl = json.optString("targetUrl", "");
+            event.payload = json.optString("payload", "");
+            return event;
+        }
+    }
+
+    public synchronized List<SmsEvent> getRecentEvents() {
+        List<SmsEvent> list = new ArrayList<>();
+        String rawJson = prefs.getString(KEY_SMS_EVENTS, null);
+        if (rawJson == null || rawJson.trim().isEmpty()) {
+            return list;
+        }
+        try {
+            JSONArray arr = new JSONArray(rawJson);
+            for (int i = 0; i < arr.length(); i++) {
+                JSONObject obj = arr.getJSONObject(i);
+                SmsEvent event = SmsEvent.fromJsonObject(obj);
+                if (event != null) {
+                    list.add(event);
+                }
+            }
+        } catch (JSONException ignored) {}
+        return list;
+    }
+
+    public synchronized void addSmsEvent(SmsEvent newEvent) {
+        List<SmsEvent> list = getRecentEvents();
+        list.add(0, newEvent);
+        while (list.size() > MAX_EVENTS_HISTORY) {
+            list.remove(list.size() - 1);
+        }
+        saveEventsList(list);
+    }
+
+    public synchronized void updateEventStatus(long timestamp, String newStatus) {
+        List<SmsEvent> list = getRecentEvents();
+        boolean changed = false;
+        for (SmsEvent event : list) {
+            if (event.timestamp == timestamp) {
+                event.status = newStatus;
+                changed = true;
+                break;
+            }
+        }
+        if (changed) {
+            saveEventsList(list);
+        }
+    }
+
+    private void saveEventsList(List<SmsEvent> list) {
+        JSONArray arr = new JSONArray();
+        for (SmsEvent event : list) {
+            arr.put(event.toJsonObject());
+        }
+        prefs.edit().putString(KEY_SMS_EVENTS, arr.toString()).apply();
     }
 }

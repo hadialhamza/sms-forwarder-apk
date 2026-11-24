@@ -5,6 +5,7 @@
     <color name="colorPrimaryDark">#1E293B</color>
     <color name="colorAccent">#A78BFA</color>
     <color name="colorSuccess">#34D399</color>
+    <color name="colorWarning">#FBBF24</color>
     <color name="colorDanger">#F87171</color>
 
     <!-- Surfaces & Backgrounds (Obsidian & Rich Dark Slate) -->

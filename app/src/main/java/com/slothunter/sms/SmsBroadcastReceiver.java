@@ -105,8 +105,14 @@ public class SmsBroadcastReceiver extends BroadcastReceiver {
         String payload = json.toString();
         Log.i(TAG, "Dispatching IVAC OTP for " + slotLabel + " (" + cleanPhone + ") to: " + targetUrl);
 
+        // Record the event in history (stores full body and status)
+        GatewaySettings.SmsEvent event = new GatewaySettings.SmsEvent(
+                sender, smsBody, slotLabel, timestamp, GatewaySettings.STATUS_SENDING, targetUrl, payload
+        );
+        settings.addSmsEvent(event);
+
         // 7. Enqueue WorkManager request
-        RequestWorker.enqueue(context, targetUrl, payload, "PUT");
+        RequestWorker.enqueue(context, targetUrl, payload, "PUT", timestamp);
     }
 
     /**

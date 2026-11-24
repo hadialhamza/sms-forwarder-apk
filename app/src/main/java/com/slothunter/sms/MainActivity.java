@@ -3,6 +3,7 @@ package com.slothunter.sms;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
@@ -10,8 +11,11 @@ import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.util.Log;
+import android.view.LayoutInflater;
+import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -21,13 +25,19 @@ import androidx.appcompat.widget.SwitchCompat;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
+import com.google.android.material.button.MaterialButton;
+
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Main dashboard for Slot Hunter SMS Gateway.
  * Provides controls for master gateway switch, unified dual SIM routing,
- * automatic SIM detection on cold launch, and inline quick-save actions.
+ * automatic SIM detection on launch, inline quick-save actions, and
+ * a live dispatch monitor for the last 2-3 forwarded SMS events with manual resend.
  */
 public class MainActivity extends AppCompatActivity {
 
@@ -41,6 +51,12 @@ public class MainActivity extends AppCompatActivity {
     private EditText inputSim2;
     private ImageButton btnSaveSim1;
     private ImageButton btnSaveSim2;
+
+    private TextView textEventsEmpty;
+    private LinearLayout containerEvents;
+
+    private final SimpleDateFormat timeFormat = new SimpleDateFormat("hh:mm a, dd MMM", Locale.getDefault());
+    private SharedPreferences.OnSharedPreferenceChangeListener prefListener;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -63,6 +79,30 @@ public class MainActivity extends AppCompatActivity {
         if (settings.isForwardingEnabled()) {
             SmsReceiverService.start(this);
         }
+
+        renderEventsList();
+
+        // Listen for live background updates to recent SMS events
+        prefListener = (sharedPreferences, key) -> {
+            if (GatewaySettings.KEY_SMS_EVENTS.equals(key)) {
+                runOnUiThread(this::renderEventsList);
+            }
+        };
+        settings.getPrefs().registerOnSharedPreferenceChangeListener(prefListener);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        renderEventsList();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (prefListener != null) {
+            settings.getPrefs().unregisterOnSharedPreferenceChangeListener(prefListener);
+        }
     }
 
     private void initViews() {
@@ -72,6 +112,9 @@ public class MainActivity extends AppCompatActivity {
         inputSim2 = findViewById(R.id.input_sim2);
         btnSaveSim1 = findViewById(R.id.btn_save_sim1);
         btnSaveSim2 = findViewById(R.id.btn_save_sim2);
+
+        textEventsEmpty = findViewById(R.id.text_events_empty);
+        containerEvents = findViewById(R.id.container_events);
 
         switchMaster.setOnCheckedChangeListener((buttonView, isChecked) -> {
             settings.setForwardingEnabled(isChecked);
@@ -124,14 +167,108 @@ public class MainActivity extends AppCompatActivity {
         Log.i(TAG, "Saved SIM 2: " + clean);
     }
 
+    // ==========================================
+    // RECENT DISPATCH EVENTS MONITOR
+    // ==========================================
+
+    private void renderEventsList() {
+        List<GatewaySettings.SmsEvent> events = settings.getRecentEvents();
+        if (events.isEmpty()) {
+            textEventsEmpty.setVisibility(View.VISIBLE);
+            containerEvents.setVisibility(View.GONE);
+            containerEvents.removeAllViews();
+            return;
+        }
+
+        textEventsEmpty.setVisibility(View.GONE);
+        containerEvents.setVisibility(View.VISIBLE);
+        containerEvents.removeAllViews();
+
+        LayoutInflater inflater = LayoutInflater.from(this);
+
+        for (int i = 0; i < events.size(); i++) {
+            GatewaySettings.SmsEvent event = events.get(i);
+            View itemView = inflater.inflate(R.layout.item_sms_event, containerEvents, false);
+
+            TextView textSim = itemView.findViewById(R.id.text_event_sim);
+            TextView textSender = itemView.findViewById(R.id.text_event_sender);
+            TextView textTime = itemView.findViewById(R.id.text_event_time);
+            TextView textEventStatus = itemView.findViewById(R.id.text_event_status);
+            TextView textBody = itemView.findViewById(R.id.text_event_body);
+            MaterialButton btnResend = itemView.findViewById(R.id.btn_event_resend);
+            View divider = itemView.findViewById(R.id.divider_event);
+
+            // SIM Slot badge styling
+            if ("SIM 2".equalsIgnoreCase(event.simSlot)) {
+                textSim.setText(R.string.label_sim2);
+                textSim.setBackgroundResource(R.drawable.bg_badge_sim2);
+                textSim.setTextColor(ContextCompat.getColor(this, R.color.colorSim2Text));
+            } else {
+                textSim.setText(R.string.label_sim1);
+                textSim.setBackgroundResource(R.drawable.bg_badge_sim1);
+                textSim.setTextColor(ContextCompat.getColor(this, R.color.colorSim1Text));
+            }
+
+            // Sender & Formatted Timestamp
+            textSender.setText(event.sender != null ? event.sender : "SMS");
+            if (event.timestamp > 0) {
+                textTime.setText(timeFormat.format(new Date(event.timestamp)));
+            } else {
+                textTime.setText("");
+            }
+
+            // Status indicator pill & actions
+            if (GatewaySettings.STATUS_DELIVERED.equalsIgnoreCase(event.status)) {
+                textEventStatus.setText("● DELIVERED");
+                textEventStatus.setTextColor(ContextCompat.getColor(this, R.color.colorSuccess));
+                btnResend.setVisibility(View.GONE);
+            } else if (GatewaySettings.STATUS_FAILED.equalsIgnoreCase(event.status)) {
+                textEventStatus.setText("● FAILED");
+                textEventStatus.setTextColor(ContextCompat.getColor(this, R.color.colorDanger));
+                btnResend.setVisibility(View.VISIBLE);
+                btnResend.setOnClickListener(v -> resendEvent(event));
+            } else {
+                textEventStatus.setText("● SENDING…");
+                textEventStatus.setTextColor(ContextCompat.getColor(this, R.color.colorWarning));
+                btnResend.setVisibility(View.GONE);
+            }
+
+            // Full SMS message text
+            textBody.setText(event.text != null ? event.text : "");
+
+            // Hide divider on the last item
+            if (i == events.size() - 1) {
+                divider.setVisibility(View.GONE);
+            } else {
+                divider.setVisibility(View.VISIBLE);
+            }
+
+            containerEvents.addView(itemView);
+        }
+    }
+
+    private void resendEvent(GatewaySettings.SmsEvent event) {
+        if (event == null || event.targetUrl == null || event.payload == null) {
+            return;
+        }
+
+        // Set status to sending and re-enqueue WorkManager
+        settings.updateEventStatus(event.timestamp, GatewaySettings.STATUS_SENDING);
+        RequestWorker.enqueue(this, event.targetUrl, event.payload, "PUT", event.timestamp);
+
+        Toast.makeText(this, "Resending SMS…", Toast.LENGTH_SHORT).show();
+        renderEventsList();
+    }
+
+    // ==========================================
+    // AUTO DETECTION & PERMISSIONS
+    // ==========================================
+
     private boolean hasPhonePermissions() {
         return ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED
                 && ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_NUMBERS) == PackageManager.PERMISSION_GRANTED;
     }
 
-    /**
-     * Automatically resolves SIM slot numbers from hardware and saves them if found.
-     */
     private void autoDetectAndSaveSims(boolean showToast) {
         if (!hasPhonePermissions()) {
             return;

@@ -10,6 +10,9 @@
     <string name="label_sim1">SIM 1</string>
     <string name="label_sim2">SIM 2</string>
 
+    <string name="label_recent_events">RECENT DISPATCH EVENTS</string>
+    <string name="status_events_empty">Waiting for incoming SMS…</string>
+
     <string name="permission_needed">SMS and Phone permissions are required for Slot Hunter to receive and route OTPs.</string>
     <string name="toast_sim1_saved">SIM 1 saved</string>
     <string name="toast_sim2_saved">SIM 2 saved</string>
