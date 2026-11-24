@@ -32,6 +32,9 @@ public class GatewaySettings {
     public static final String DEFAULT_FIREBASE_URL =
             "https://ivac-gateway-default-rtdb.asia-southeast1.firebasedatabase.app/sms/";
 
+    private static volatile GatewaySettings instance;
+    private static final Object EVENTS_LOCK = new Object();
+
     private final SharedPreferences prefs;
 
     public GatewaySettings(Context context) {
@@ -40,7 +43,14 @@ public class GatewaySettings {
     }
 
     public static GatewaySettings getInstance(Context context) {
-        return new GatewaySettings(context);
+        if (instance == null) {
+            synchronized (GatewaySettings.class) {
+                if (instance == null) {
+                    instance = new GatewaySettings(context);
+                }
+            }
+        }
+        return instance;
     }
 
     public SharedPreferences getPrefs() {
@@ -106,14 +116,22 @@ public class GatewaySettings {
     }
 
     /**
-     * Constructs the direct Firebase REST PUT URL for a target phone number.
+     * Constructs the direct Firebase REST PUT URL for a target phone number and timestamp.
      */
-    public String buildTargetUrl(String cleanPhoneNumber) {
+    public String buildTargetUrl(String cleanPhoneNumber, long timestamp) {
         String base = getFirebaseUrl();
         String phone = (cleanPhoneNumber != null && !cleanPhoneNumber.trim().isEmpty())
                 ? cleanPhoneNumber.trim()
                 : "default";
-        return base + phone + ".json";
+        long ts = timestamp > 0 ? timestamp : System.currentTimeMillis();
+        return base + phone + "/" + ts + ".json";
+    }
+
+    /**
+     * Constructs the direct Firebase REST PUT URL using the current epoch timestamp.
+     */
+    public String buildTargetUrl(String cleanPhoneNumber) {
+        return buildTargetUrl(cleanPhoneNumber, System.currentTimeMillis());
     }
 
     /**
@@ -190,46 +208,52 @@ public class GatewaySettings {
         }
     }
 
-    public synchronized List<SmsEvent> getRecentEvents() {
-        List<SmsEvent> list = new ArrayList<>();
-        String rawJson = prefs.getString(KEY_SMS_EVENTS, null);
-        if (rawJson == null || rawJson.trim().isEmpty()) {
+    public List<SmsEvent> getRecentEvents() {
+        synchronized (EVENTS_LOCK) {
+            List<SmsEvent> list = new ArrayList<>();
+            String rawJson = prefs.getString(KEY_SMS_EVENTS, null);
+            if (rawJson == null || rawJson.trim().isEmpty()) {
+                return list;
+            }
+            try {
+                JSONArray arr = new JSONArray(rawJson);
+                for (int i = 0; i < arr.length(); i++) {
+                    JSONObject obj = arr.getJSONObject(i);
+                    SmsEvent event = SmsEvent.fromJsonObject(obj);
+                    if (event != null) {
+                        list.add(event);
+                    }
+                }
+            } catch (JSONException ignored) {}
             return list;
         }
-        try {
-            JSONArray arr = new JSONArray(rawJson);
-            for (int i = 0; i < arr.length(); i++) {
-                JSONObject obj = arr.getJSONObject(i);
-                SmsEvent event = SmsEvent.fromJsonObject(obj);
-                if (event != null) {
-                    list.add(event);
+    }
+
+    public void addSmsEvent(SmsEvent newEvent) {
+        synchronized (EVENTS_LOCK) {
+            List<SmsEvent> list = getRecentEvents();
+            list.add(0, newEvent);
+            while (list.size() > MAX_EVENTS_HISTORY) {
+                list.remove(list.size() - 1);
+            }
+            saveEventsList(list);
+        }
+    }
+
+    public void updateEventStatus(long timestamp, String newStatus) {
+        synchronized (EVENTS_LOCK) {
+            List<SmsEvent> list = getRecentEvents();
+            boolean changed = false;
+            for (SmsEvent event : list) {
+                if (event.timestamp == timestamp) {
+                    event.status = newStatus;
+                    changed = true;
+                    break;
                 }
             }
-        } catch (JSONException ignored) {}
-        return list;
-    }
-
-    public synchronized void addSmsEvent(SmsEvent newEvent) {
-        List<SmsEvent> list = getRecentEvents();
-        list.add(0, newEvent);
-        while (list.size() > MAX_EVENTS_HISTORY) {
-            list.remove(list.size() - 1);
-        }
-        saveEventsList(list);
-    }
-
-    public synchronized void updateEventStatus(long timestamp, String newStatus) {
-        List<SmsEvent> list = getRecentEvents();
-        boolean changed = false;
-        for (SmsEvent event : list) {
-            if (event.timestamp == timestamp) {
-                event.status = newStatus;
-                changed = true;
-                break;
+            if (changed) {
+                saveEventsList(list);
             }
-        }
-        if (changed) {
-            saveEventsList(list);
         }
     }
 

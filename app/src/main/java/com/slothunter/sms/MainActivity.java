@@ -265,8 +265,13 @@ public class MainActivity extends AppCompatActivity {
     // ==========================================
 
     private boolean hasPhonePermissions() {
-        return ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED
-                && ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_NUMBERS) == PackageManager.PERMISSION_GRANTED;
+        boolean hasState = ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE)
+                == PackageManager.PERMISSION_GRANTED;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            return hasState && ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_NUMBERS)
+                    == PackageManager.PERMISSION_GRANTED;
+        }
+        return hasState;
     }
 
     private void autoDetectAndSaveSims(boolean showToast) {
@@ -352,9 +357,11 @@ public class MainActivity extends AppCompatActivity {
             requiredPermissions.add(Manifest.permission.READ_PHONE_STATE);
         }
 
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_NUMBERS)
-                != PackageManager.PERMISSION_GRANTED) {
-            requiredPermissions.add(Manifest.permission.READ_PHONE_NUMBERS);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_NUMBERS)
+                    != PackageManager.PERMISSION_GRANTED) {
+                requiredPermissions.add(Manifest.permission.READ_PHONE_NUMBERS);
+            }
         }
 
         if (Build.VERSION.SDK_INT >= 33) {

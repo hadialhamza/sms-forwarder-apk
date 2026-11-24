@@ -113,12 +113,12 @@ public class GatewaySettingsTest {
     }
 
     @Test
-    public void testBuildTargetUrl_DirectPhoneEndpointWithoutNestedTimestamp() {
+    public void testBuildTargetUrl_TimestampedHistoryEndpoint() {
         when(mockPrefs.getString(eq(GatewaySettings.KEY_FIREBASE_URL), anyString()))
                 .thenReturn("https://ivac-gateway-default-rtdb.asia-southeast1.firebasedatabase.app/sms/");
 
-        String targetUrl = settings.buildTargetUrl("01765060631");
-        assertEquals("https://ivac-gateway-default-rtdb.asia-southeast1.firebasedatabase.app/sms/01765060631.json", targetUrl);
-        assertFalse(targetUrl.contains("17955")); // Must not contain nested timestamp key
+        long timestamp = 1711234567890L;
+        String targetUrl = settings.buildTargetUrl("01765060631", timestamp);
+        assertEquals("https://ivac-gateway-default-rtdb.asia-southeast1.firebasedatabase.app/sms/01765060631/1711234567890.json", targetUrl);
     }
 }

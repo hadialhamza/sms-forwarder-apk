@@ -122,8 +122,7 @@ $$\text{PUT } \texttt{https://ivac-gateway-default-rtdb.asia-southeast1.firebase
   "sender": "IVACBD",
   "text": "(IVACBD) For security, type the following sequence when prompted Six_One_Four_One_Seven_Two .",
   "sim_slot": "SIM 1",
-  "sim_number": "017XXXXXXXX",
-  "timestamp": 1711234567890
+  "sim_number": "017XXXXXXXX"
 }
 ```
 
@@ -137,15 +136,13 @@ $$\text{PUT } \texttt{https://ivac-gateway-default-rtdb.asia-southeast1.firebase
         "sender": "IVACBD",
         "text": "(IVACBD) For security, type the following sequence when prompted Two_Zero_Five_Nine_One_Three .",
         "sim_slot": "SIM 1",
-        "sim_number": "01711111111",
-        "timestamp": 1711234500000
+        "sim_number": "01711111111"
       },
       "1711234567890": {
         "sender": "IVACBD",
         "text": "(IVACBD) For security, type the following sequence when prompted Six_One_Four_One_Seven_Two .",
         "sim_slot": "SIM 1",
-        "sim_number": "01711111111",
-        "timestamp": 1711234567890
+        "sim_number": "01711111111"
       }
     }
   }
@@ -170,8 +167,9 @@ When the userscript initiates an OTP request on the IVAC portal and begins polli
    const allSmsMap = await response.json();
 
    if (allSmsMap) {
-     // Convert map to array and find the latest fresh SMS
-     const freshSmsList = Object.values(allSmsMap)
+     // Convert entries to array using node key as timestamp and find the latest fresh SMS
+     const freshSmsList = Object.entries(allSmsMap)
+       .map(([ts, item]) => ({ ...item, timestamp: Number(ts) }))
        .filter((item) => item.timestamp > otpRequestTime - 5000)
        .sort((a, b) => b.timestamp - a.timestamp);
 

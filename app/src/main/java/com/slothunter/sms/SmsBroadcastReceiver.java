@@ -85,18 +85,16 @@ public class SmsBroadcastReceiver extends BroadcastReceiver {
             cleanPhone = "SIM" + slotNumber;
         }
 
-        // 5. Construct direct Firebase target URL (e.g. .../sms/01765060631.json)
-        // No outer timestamp object wrapper
-        String targetUrl = settings.buildTargetUrl(cleanPhone);
+        // 5. Construct direct Firebase target URL (e.g. .../sms/01765060631/1711234567890.json)
+        String targetUrl = settings.buildTargetUrl(cleanPhone, timestamp);
 
-        // 6. Construct clean JSON payload
+        // 6. Construct clean JSON payload (timestamp is already the Firebase node key)
         JSONObject json = new JSONObject();
         try {
             json.put("sender", sender);
             json.put("text", smsBody);
             json.put("sim_slot", slotLabel);
             json.put("sim_number", cleanPhone);
-            json.put("timestamp", timestamp);
         } catch (JSONException e) {
             Log.e(TAG, "JSON serialization error: " + e.getMessage(), e);
             return;
