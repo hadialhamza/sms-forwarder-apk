@@ -58,7 +58,7 @@ public class SmsReceiverService extends Service {
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setContentTitle(getString(R.string.app_name))
                 .setContentText(getString(R.string.service_notification_text))
-                .setSmallIcon(R.drawable.ic_f)
+                .setSmallIcon(R.drawable.ic_stat_forward)
                 .setColor(getResources().getColor(R.color.colorPrimary))
                 .setContentIntent(pendingIntent)
                 .setOngoing(true)

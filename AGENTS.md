@@ -81,6 +81,6 @@ WorkManager (RequestWorker HTTP PUT with Exponential Backoff)
 Firebase Realtime Database REST API (/sms/{phone}/{timestamp}.json)
 ```
 
-- **Keep-Alive Daemon:** `SmsReceiverService` runs as a foreground service with an ongoing notification (`ic_f.png`) to keep the process alive in memory.
+- **Keep-Alive Daemon:** `SmsReceiverService` runs as a foreground service with an ongoing notification (`ic_stat_forward.xml`) to keep the process alive in memory.
 - **Cold Boot:** `BootCompletedReceiver` restarts the foreground service automatically upon device reboot if forwarding is enabled.
 - **Persistence:** All configurations are stored locally in `SharedPreferences` without external server dependencies.
