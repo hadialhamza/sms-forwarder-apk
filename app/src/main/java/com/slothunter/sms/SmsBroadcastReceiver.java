@@ -5,6 +5,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.telephony.SmsMessage;
+import android.telephony.SubscriptionInfo;
+import android.telephony.SubscriptionManager;
 import android.util.Log;
 
 import org.json.JSONException;
@@ -14,7 +16,7 @@ import java.util.Set;
 
 /**
  * Manifest-declared broadcast receiver that intercepts incoming SMS, filters for IVAC messages,
- * identifies the receiving SIM slot, and dispatches the payload to Firebase RTDB.
+ * identifies the receiving physical SIM slot (SIM 1 vs SIM 2), and dispatches the payload to Firebase RTDB.
  */
 public class SmsBroadcastReceiver extends BroadcastReceiver {
 
@@ -22,6 +24,10 @@ public class SmsBroadcastReceiver extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
+        if (intent == null) {
+            return;
+        }
+
         Bundle bundle = intent.getExtras();
         if (bundle == null) {
             return;
@@ -67,34 +73,29 @@ public class SmsBroadcastReceiver extends BroadcastReceiver {
 
         Log.i(TAG, "Verified IVAC SMS received from: " + sender);
 
-        // 3. Detect SIM slot (1 or 2)
-        int rawSlot = detectSim(bundle);
-        int slotNumber = (rawSlot >= 0) ? rawSlot + 1 : 1;
+        // 3. Detect physical SIM slot (0 for SIM 1, 1 for SIM 2)
+        int slotIndex = detectSimSlot(context, intent, bundle);
+        int slotNumber = slotIndex + 1; // 1 or 2
         String slotLabel = "SIM " + slotNumber;
 
         // 4. Map SIM slot to configured phone number
         String phoneNumber = settings.getPhoneNumberForSlot(slotNumber);
-        if (phoneNumber == null || phoneNumber.trim().isEmpty()) {
-            phoneNumber = "slot" + slotNumber;
-        }
-
-        // Clean phone number for URL (remove non-alphanumeric if needed)
-        String cleanPhone = phoneNumber.replaceAll("[^a-zA-Z0-9+_-]", "");
+        String cleanPhone = GatewaySettings.normalizePhoneNumber(phoneNumber);
         if (cleanPhone.isEmpty()) {
-            cleanPhone = "slot" + slotNumber;
+            cleanPhone = "SIM" + slotNumber;
         }
 
-        // 5. Construct dynamic Firebase target URL
-        // Target URL: Base URL + Phone Number + "/" + timestamp + ".json"
-        String targetUrl = settings.getFirebaseUrl() + cleanPhone + "/" + timestamp + ".json";
+        // 5. Construct direct Firebase target URL (e.g. .../sms/01765060631.json)
+        // No outer timestamp object wrapper
+        String targetUrl = settings.buildTargetUrl(cleanPhone);
 
-        // 6. Construct JSON payload
+        // 6. Construct clean JSON payload
         JSONObject json = new JSONObject();
         try {
             json.put("sender", sender);
             json.put("text", smsBody);
             json.put("sim_slot", slotLabel);
-            json.put("sim_number", phoneNumber);
+            json.put("sim_number", cleanPhone);
             json.put("timestamp", timestamp);
         } catch (JSONException e) {
             Log.e(TAG, "JSON serialization error: " + e.getMessage(), e);
@@ -102,51 +103,96 @@ public class SmsBroadcastReceiver extends BroadcastReceiver {
         }
 
         String payload = json.toString();
-        Log.i(TAG, "Dispatching IVAC OTP to: " + targetUrl);
+        Log.i(TAG, "Dispatching IVAC OTP for " + slotLabel + " (" + cleanPhone + ") to: " + targetUrl);
 
         // 7. Enqueue WorkManager request
         RequestWorker.enqueue(context, targetUrl, payload, "PUT");
     }
 
     /**
-     * Probes OEM-specific bundle extras to detect the receiving SIM slot index (0-based).
+     * Accurately detects the receiving physical SIM slot (0 for SIM 1, 1 for SIM 2).
+     * Distinguishes physical slot indices (0, 1) from internal subscription IDs.
      */
-    public int detectSim(Bundle bundle) {
-        int slot = -1;
+    public int detectSimSlot(Context context, Intent intent, Bundle bundle) {
+        // Priority 1: Check standard Android Telephony extra (android.telephony.extra.SLOT_INDEX)
+        if (intent != null && intent.hasExtra("android.telephony.extra.SLOT_INDEX")) {
+            int slot = intent.getIntExtra("android.telephony.extra.SLOT_INDEX", -1);
+            if (slot == 0 || slot == 1) {
+                return slot;
+            }
+        }
 
-        Set<String> keys = bundle.keySet();
-        for (String key : keys) {
-            String lower = key.toLowerCase();
-            if (lower.contains("sim") || lower.contains("slot") || lower.contains("sub")) {
-                Object value = bundle.get(key);
-                if (value instanceof Integer) {
-                    int intVal = (Integer) value;
-                    if (intVal >= 0 && intVal <= 3) {
-                        return intVal;
-                    }
-                } else if (value instanceof String) {
-                    try {
-                        int intVal = Integer.parseInt((String) value);
-                        if (intVal >= 0 && intVal <= 3) {
-                            return intVal;
-                        }
-                    } catch (NumberFormatException ignored) {}
+        if (bundle == null) {
+            return 0; // Default to SIM 1
+        }
+
+        // Priority 2: Direct known physical slot keys
+        String[] directSlotKeys = {"slot", "simSlot", "sim_slot", "slot_id", "simnum", "phone"};
+        for (String key : directSlotKeys) {
+            if (bundle.containsKey(key)) {
+                Object val = bundle.get(key);
+                int parsed = parseSlotValue(val);
+                if (parsed == 0 || parsed == 1) {
+                    return parsed;
                 }
             }
         }
 
-        if (bundle.containsKey("phone")) {
-            slot = bundle.getInt("phone", -1);
-        } else if (bundle.containsKey("slot")) {
-            slot = bundle.getInt("slot", -1);
-        } else if (bundle.containsKey("simSlot")) {
-            slot = bundle.getInt("simSlot", -1);
-        } else if (bundle.containsKey("slot_id")) {
-            slot = bundle.getInt("slot_id", -1);
-        } else if (bundle.containsKey("simnum")) {
-            slot = bundle.getInt("simnum", -1);
+        // Priority 3: Subscription ID mapping via SubscriptionManager
+        // Subscription IDs (e.g. 2, 3) must be mapped to physical slot (0 or 1)
+        String[] subIdKeys = {
+                "subscription", "subscription_id", "sub_id", "subId",
+                "android.telephony.extra.SUBSCRIPTION_INDEX"
+        };
+        for (String subKey : subIdKeys) {
+            if (bundle.containsKey(subKey)) {
+                Object val = bundle.get(subKey);
+                int subId = parseSlotValue(val);
+                if (subId >= 0 && context != null) {
+                    try {
+                        SubscriptionManager sm = (SubscriptionManager)
+                                context.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE);
+                        if (sm != null) {
+                            SubscriptionInfo info = sm.getActiveSubscriptionInfo(subId);
+                            if (info != null) {
+                                int mappedSlot = info.getSimSlotIndex();
+                                if (mappedSlot == 0 || mappedSlot == 1) {
+                                    return mappedSlot;
+                                }
+                            }
+                        }
+                    } catch (Exception e) {
+                        Log.w(TAG, "Unable to resolve subId " + subId + " to slot: " + e.getMessage());
+                    }
+                }
+            }
         }
 
-        return slot;
+        // Priority 4: Search bundle for keys containing "slot" or "sim" (excluding "sub")
+        Set<String> keys = bundle.keySet();
+        for (String key : keys) {
+            String lower = key.toLowerCase();
+            if ((lower.contains("slot") || lower.contains("sim")) && !lower.contains("sub")) {
+                Object val = bundle.get(key);
+                int parsed = parseSlotValue(val);
+                if (parsed == 0 || parsed == 1) {
+                    return parsed;
+                }
+            }
+        }
+
+        // Default fallback to SIM 1 (0-based)
+        return 0;
+    }
+
+    private int parseSlotValue(Object value) {
+        if (value instanceof Integer) {
+            return (Integer) value;
+        } else if (value instanceof String) {
+            try {
+                return Integer.parseInt((String) value);
+            } catch (NumberFormatException ignored) {}
+        }
+        return -1;
     }
 }

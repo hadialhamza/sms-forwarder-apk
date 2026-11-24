@@ -89,6 +89,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
+                    android:importantForAutofill="no"
                     style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
                     <com.google.android.material.textfield.TextInputEditText
@@ -97,6 +98,7 @@
                         android:layout_height="wrap_content"
                         android:hint="@string/hint_sim1_number"
                         android:inputType="phone"
+                        android:importantForAutofill="no"
                         android:maxLines="1" />
                 </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
@@ -127,6 +129,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
+                    android:importantForAutofill="no"
                     style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
                     <com.google.android.material.textfield.TextInputEditText
@@ -135,6 +138,7 @@
                         android:layout_height="wrap_content"
                         android:hint="@string/hint_sim2_number"
                         android:inputType="phone"
+                        android:importantForAutofill="no"
                         android:maxLines="1" />
                 </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>

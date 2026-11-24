@@ -103,22 +103,30 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void saveSettings() {
-        String sim1 = inputSim1.getText() != null ? inputSim1.getText().toString().trim() : "";
-        String sim2 = inputSim2.getText() != null ? inputSim2.getText().toString().trim() : "";
+        String rawSim1 = inputSim1.getText() != null ? inputSim1.getText().toString() : "";
+        String rawSim2 = inputSim2.getText() != null ? inputSim2.getText().toString() : "";
 
-        settings.setSim1Number(sim1);
-        settings.setSim2Number(sim2);
+        // Normalize both phone numbers (strips +88, 88, dashes, spaces)
+        String normSim1 = GatewaySettings.normalizePhoneNumber(rawSim1);
+        String normSim2 = GatewaySettings.normalizePhoneNumber(rawSim2);
+
+        // Update the input fields with the clean formatted numbers
+        inputSim1.setText(normSim1);
+        inputSim2.setText(normSim2);
+
+        settings.setSim1Number(normSim1);
+        settings.setSim2Number(normSim2);
 
         Toast.makeText(this, R.string.toast_saved, Toast.LENGTH_SHORT).show();
-        Log.i(TAG, "Saved SIM 1: " + sim1 + ", SIM 2: " + sim2);
+        Log.i(TAG, "Saved SIM 1: " + normSim1 + ", SIM 2: " + normSim2);
     }
 
     private void detectSimNumbers() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE)
-                != PackageManager.PERMISSION_GRANTED) {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_NUMBERS) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(
                     this,
-                    new String[]{Manifest.permission.READ_PHONE_STATE},
+                    new String[]{Manifest.permission.READ_PHONE_STATE, Manifest.permission.READ_PHONE_NUMBERS},
                     PERMISSION_REQUEST_CODE
             );
             return;
@@ -126,6 +134,8 @@ public class MainActivity extends AppCompatActivity {
 
         try {
             boolean detectedAny = false;
+            StringBuilder detectedCarrierNames = new StringBuilder();
+
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
                 SubscriptionManager subManager =
                         (SubscriptionManager) getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE);
@@ -135,15 +145,33 @@ public class MainActivity extends AppCompatActivity {
                     if (subs != null && !subs.isEmpty()) {
                         for (SubscriptionInfo info : subs) {
                             int simSlotIndex = info.getSimSlotIndex();
-                            String number = info.getNumber();
+                            String carrierName = String.valueOf(info.getDisplayName());
+                            if (detectedCarrierNames.length() > 0) {
+                                detectedCarrierNames.append(", ");
+                            }
+                            detectedCarrierNames.append(carrierName);
+
+                            String number = "";
+                            // On Android 13+ (API 33), try SubscriptionManager.getPhoneNumber(subId)
+                            if (Build.VERSION.SDK_INT >= 33) {
+                                try {
+                                    number = subManager.getPhoneNumber(info.getSubscriptionId());
+                                } catch (Exception ignored) {}
+                            }
+                            if (number == null || number.trim().isEmpty()) {
+                                number = info.getNumber();
+                            }
 
                             if (number != null && !number.trim().isEmpty()) {
-                                if (simSlotIndex == 0) {
-                                    inputSim1.setText(number);
-                                    detectedAny = true;
-                                } else if (simSlotIndex == 1) {
-                                    inputSim2.setText(number);
-                                    detectedAny = true;
+                                String clean = GatewaySettings.normalizePhoneNumber(number);
+                                if (!clean.isEmpty()) {
+                                    if (simSlotIndex == 0) {
+                                        inputSim1.setText(clean);
+                                        detectedAny = true;
+                                    } else if (simSlotIndex == 1) {
+                                        inputSim2.setText(clean);
+                                        detectedAny = true;
+                                    }
                                 }
                             }
                         }
@@ -157,8 +185,11 @@ public class MainActivity extends AppCompatActivity {
                     @SuppressLint("MissingPermission")
                     String line1 = tm.getLine1Number();
                     if (line1 != null && !line1.trim().isEmpty()) {
-                        inputSim1.setText(line1);
-                        detectedAny = true;
+                        String clean = GatewaySettings.normalizePhoneNumber(line1);
+                        if (!clean.isEmpty()) {
+                            inputSim1.setText(clean);
+                            detectedAny = true;
+                        }
                     }
                 }
             }
@@ -166,7 +197,9 @@ public class MainActivity extends AppCompatActivity {
             if (detectedAny) {
                 Toast.makeText(this, R.string.toast_sims_detected, Toast.LENGTH_SHORT).show();
             } else {
-                Toast.makeText(this, R.string.toast_sims_not_detected, Toast.LENGTH_LONG).show();
+                String msg = "Active SIM(s) detected: " + detectedCarrierNames.toString() +
+                        ". Please verify or enter your numbers.";
+                Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
             }
         } catch (Exception e) {
             Log.e(TAG, "Error detecting SIMs: " + e.getMessage(), e);
@@ -185,6 +218,11 @@ public class MainActivity extends AppCompatActivity {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE)
                 != PackageManager.PERMISSION_GRANTED) {
             requiredPermissions.add(Manifest.permission.READ_PHONE_STATE);
+        }
+
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_NUMBERS)
+                != PackageManager.PERMISSION_GRANTED) {
+            requiredPermissions.add(Manifest.permission.READ_PHONE_NUMBERS);
         }
 
         if (Build.VERSION.SDK_INT >= 33) {

@@ -42,7 +42,8 @@ public class GatewaySettings {
     }
 
     public void setSim1Number(String number) {
-        prefs.edit().putString(KEY_SIM1_NUMBER, number != null ? number.trim() : "").apply();
+        String normalized = normalizePhoneNumber(number);
+        prefs.edit().putString(KEY_SIM1_NUMBER, normalized).apply();
     }
 
     public String getSim2Number() {
@@ -50,7 +51,8 @@ public class GatewaySettings {
     }
 
     public void setSim2Number(String number) {
-        prefs.edit().putString(KEY_SIM2_NUMBER, number != null ? number.trim() : "").apply();
+        String normalized = normalizePhoneNumber(number);
+        prefs.edit().putString(KEY_SIM2_NUMBER, normalized).apply();
     }
 
     public String getFirebaseUrl() {
@@ -70,13 +72,55 @@ public class GatewaySettings {
 
     /**
      * Resolves the configured phone number for a given SIM slot index (1 or 2).
+     * Strictly clamps to SIM 1 or SIM 2.
      */
     public String getPhoneNumberForSlot(int slotIndex) {
-        if (slotIndex == 1) {
-            return getSim1Number();
-        } else if (slotIndex == 2) {
-            return getSim2Number();
+        if (slotIndex == 2) {
+            String sim2 = getSim2Number();
+            if (!sim2.isEmpty()) {
+                return sim2;
+            }
         }
-        return "";
+        // Default to SIM 1 for slot 1 or fallback
+        String sim1 = getSim1Number();
+        if (!sim1.isEmpty()) {
+            return sim1;
+        }
+        return getSim2Number();
+    }
+
+    /**
+     * Constructs the direct Firebase REST PUT URL for a target phone number.
+     * Example: https://.../sms/01765060631.json (NO nested timestamp object key).
+     */
+    public String buildTargetUrl(String cleanPhoneNumber) {
+        String base = getFirebaseUrl();
+        String phone = (cleanPhoneNumber != null && !cleanPhoneNumber.trim().isEmpty())
+                ? cleanPhoneNumber.trim()
+                : "default";
+        return base + phone + ".json";
+    }
+
+    /**
+     * Cleans and normalizes phone numbers by stripping country codes (+88, 88),
+     * dashes, spaces, and formatting to standard 11 digits (e.g. 01XXXXXXXXX).
+     */
+    public static String normalizePhoneNumber(String raw) {
+        if (raw == null) {
+            return "";
+        }
+        // Remove all spaces, dashes, parentheses
+        String cleaned = raw.replaceAll("[\\s\\-\\(\\)]", "").trim();
+
+        // Strip leading +88 or 88
+        if (cleaned.startsWith("+880")) {
+            cleaned = cleaned.substring(3);
+        } else if (cleaned.startsWith("+88")) {
+            cleaned = cleaned.substring(3);
+        } else if (cleaned.startsWith("880")) {
+            cleaned = cleaned.substring(2);
+        }
+
+        return cleaned;
     }
 }

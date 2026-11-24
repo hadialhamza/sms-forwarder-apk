@@ -65,31 +65,60 @@ public class GatewaySettingsTest {
     @Test
     public void testSimNumberRetrievalAndResolution() {
         when(mockPrefs.getString(eq(GatewaySettings.KEY_SIM1_NUMBER), anyString()))
-                .thenReturn("01711111111");
+                .thenReturn("01765060631");
         when(mockPrefs.getString(eq(GatewaySettings.KEY_SIM2_NUMBER), anyString()))
-                .thenReturn("01822222222");
+                .thenReturn("01719971636");
 
-        assertEquals("01711111111", settings.getSim1Number());
-        assertEquals("01822222222", settings.getSim2Number());
+        assertEquals("01765060631", settings.getSim1Number());
+        assertEquals("01719971636", settings.getSim2Number());
 
-        // Slot 1 should resolve to SIM 1
-        assertEquals("01711111111", settings.getPhoneNumberForSlot(1));
+        // Slot 1 resolves to SIM 1
+        assertEquals("01765060631", settings.getPhoneNumberForSlot(1));
 
-        // Slot 2 should resolve to SIM 2
-        assertEquals("01822222222", settings.getPhoneNumberForSlot(2));
+        // Slot 2 resolves to SIM 2
+        assertEquals("01719971636", settings.getPhoneNumberForSlot(2));
 
-        // Unknown slot should resolve to empty
-        assertEquals("", settings.getPhoneNumberForSlot(3));
+        // Fallback: slot > 2 should default to SIM 1 rather than producing slot3
+        assertEquals("01765060631", settings.getPhoneNumberForSlot(3));
     }
 
     @Test
     public void testFirebaseUrlFormatting() {
-        // Test ensuring trailing slash is always appended
         when(mockPrefs.getString(eq(GatewaySettings.KEY_FIREBASE_URL), anyString()))
                 .thenReturn("https://my-firebase-app.firebasedatabase.app/sms");
 
         String formatted = settings.getFirebaseUrl();
         assertTrue(formatted.endsWith("/"));
         assertEquals("https://my-firebase-app.firebasedatabase.app/sms/", formatted);
+    }
+
+    @Test
+    public void testNormalizePhoneNumber() {
+        // Test standard 11-digit clean number
+        assertEquals("01765060631", GatewaySettings.normalizePhoneNumber("01765060631"));
+
+        // Test with +88 prefix
+        assertEquals("01765060631", GatewaySettings.normalizePhoneNumber("+8801765060631"));
+
+        // Test with 88 prefix without plus
+        assertEquals("01765060631", GatewaySettings.normalizePhoneNumber("8801765060631"));
+
+        // Test with dashes and spaces
+        assertEquals("01765060631", GatewaySettings.normalizePhoneNumber("+88 017-65060631"));
+        assertEquals("01719971636", GatewaySettings.normalizePhoneNumber("01719 971 636"));
+
+        // Test null or empty
+        assertEquals("", GatewaySettings.normalizePhoneNumber(null));
+        assertEquals("", GatewaySettings.normalizePhoneNumber(""));
+    }
+
+    @Test
+    public void testBuildTargetUrl_DirectPhoneEndpointWithoutNestedTimestamp() {
+        when(mockPrefs.getString(eq(GatewaySettings.KEY_FIREBASE_URL), anyString()))
+                .thenReturn("https://ivac-gateway-default-rtdb.asia-southeast1.firebasedatabase.app/sms/");
+
+        String targetUrl = settings.buildTargetUrl("01765060631");
+        assertEquals("https://ivac-gateway-default-rtdb.asia-southeast1.firebasedatabase.app/sms/01765060631.json", targetUrl);
+        assertFalse(targetUrl.contains("17955")); // Must not contain nested timestamp key
     }
 }

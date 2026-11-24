@@ -15,9 +15,21 @@ android {
         vectorDrawables.useSupportLibrary = true
     }
 
+    signingConfigs {
+        release {
+            storeFile file('../release.jks')
+            storePassword 'slothunter123'
+            keyAlias 'slothunter'
+            keyPassword 'slothunter123'
+            v1SigningEnabled true
+            v2SigningEnabled true
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled false
+            signingConfig signingConfigs.release
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
