@@ -13,9 +13,10 @@ public class IvacFilter {
     private static final Pattern KEYWORD_PATTERN = Pattern.compile("(?i).*ivacbd.*");
 
     // Condition 2: Word-number density check for spelled-out numbers
-    // zero, one, two, three, four, five, six, seven, eight, nine
+    // Supports any non-letter delimiters including underscores '_', hyphens '-', spaces, etc.
+    // without erroneously matching substrings inside words (e.g. 'someone' -> not matching 'one')
     private static final Pattern WORD_NUMBER_PATTERN = Pattern.compile(
-            "(?i)\\b(zero|one|two|three|four|five|six|seven|eight|nine)\\b"
+            "(?i)(?:^|[^a-zA-Z])(zero|one|two|three|four|five|six|seven|eight|nine)(?=[^a-zA-Z]|$)"
     );
 
     // Minimum occurrences of spelled-out digits required to qualify as IVAC OTP
