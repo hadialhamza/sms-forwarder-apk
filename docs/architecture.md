@@ -2,7 +2,7 @@
 
 ## 1. Overview & Objective
 
-This project customizes the open-source **Incoming SMS to URL Forwarder** Android application into a dedicated, hardened **IVAC (Indian Visa Application Center) SMS Gateway**.
+This project is a dedicated, hardened, and standalone **IVAC (Indian Visa Application Center) SMS Gateway** Android application.
 
 The application operates as a background gateway that:
 
@@ -192,7 +192,7 @@ When the userscript initiates an OTP request on the IVAC portal and begins polli
 - **Firebase Realtime Database Native Limitation:** Unlike Cloud Firestore (which has a native TTL setting in the console), Firebase Realtime Database does **NOT** provide a native 1-click TTL auto-delete toggle directly inside its console dashboard.
 - **Auto-Cleanup Strategies:**
   1. **Option A: Script-Level Auto-Purge:** Once the script successfully reads and consumes the OTP, it issues an HTTP `DELETE` for that specific record or resets the node.
-  2. **Option B: Daily Auto-Cleanup via Free GitHub Action:** A scheduled GitHub Action running once a day (`cron: '0 0 * * *'`) makes a single `DELETE` call to `/sms.json` to purge yesterday's expired OTPs completely at zero cost.
+  2. **Option B: Daily Auto-Cleanup via Scheduled Cron/Script:** A scheduled script or cron job running once a day makes a single `DELETE` call to `/sms.json` to purge yesterday's expired OTPs completely at zero cost.
   3. **Option C: App-Level Pruning:** When sending a new SMS, the Android app can query and prune nodes older than 24 hours.
 
 ---

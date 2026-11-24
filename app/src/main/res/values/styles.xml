@@ -35,14 +35,4 @@
         <item name="android:lineSpacingExtra">2sp</item>
     </style>
 
-    <style name="AppTheme.SwitchRow" parent="">
-        <item name="android:minHeight">48dp</item>
-        <item name="android:textSize">15sp</item>
-        <item name="android:textColor">?android:attr/textColorPrimary</item>
-    </style>
-
-    <style name="AppTheme.TextInput" parent="Widget.MaterialComponents.TextInputLayout.OutlinedBox">
-        <item name="helperTextEnabled">true</item>
-    </style>
-
 </resources>
