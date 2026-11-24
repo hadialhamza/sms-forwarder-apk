@@ -1,28 +1,17 @@
 <resources>
     <string name="app_name">Slot Hunter SMS</string>
     <string name="notification_channel">Gateway Service</string>
-    <string name="service_notification_text">Listening for incoming IVAC SMS</string>
+    <string name="service_notification_text">SMS Gateway is active</string>
     
     <string name="status_active">Gateway Status: ACTIVE</string>
     <string name="status_inactive">Gateway Status: INACTIVE</string>
-    <string name="desc_master_toggle">Forward incoming IVAC SMS to Firebase Realtime Database</string>
 
-    <string name="label_sim1_section">SIM 1 CONFIGURATION</string>
-    <string name="hint_sim1_number">SIM 1 Phone Number (e.g. 01711111111)</string>
+    <string name="label_sim_section">ACTIVE SIM SLOTS</string>
+    <string name="label_sim1">SIM 1</string>
+    <string name="label_sim2">SIM 2</string>
 
-    <string name="label_sim2_section">SIM 2 CONFIGURATION</string>
-    <string name="hint_sim2_number">SIM 2 Phone Number (e.g. 01822222222)</string>
-
-    <string name="btn_auto_detect">Auto Detect SIMs</string>
-    <string name="btn_save">Save Settings</string>
-
-    <string name="label_status_section">GATEWAY ACTIVITY &amp; STATUS</string>
-    <string name="status_target_endpoint">● Endpoint: Firebase Realtime Database (/sms)</string>
-    <string name="status_listening">● Listening for IVAC SMS on active SIM slots</string>
-    <string name="status_paused">● Gateway paused by user</string>
-
-    <string name="permission_needed">SMS and Phone permissions are required for Slot Hunter SMS to receive and forward OTPs.</string>
-    <string name="toast_saved">Settings saved successfully</string>
-    <string name="toast_sims_detected">SIM slots detected and populated</string>
-    <string name="toast_sims_not_detected">Unable to auto-detect numbers from SIM. Please type them manually.</string>
+    <string name="permission_needed">SMS and Phone permissions are required for Slot Hunter to receive and route OTPs.</string>
+    <string name="toast_sim1_saved">SIM 1 saved</string>
+    <string name="toast_sim2_saved">SIM 2 saved</string>
+    <string name="toast_sims_auto_detected">Active SIMs auto-detected and saved</string>
 </resources>

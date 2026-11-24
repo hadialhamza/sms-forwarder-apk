@@ -10,6 +10,8 @@ import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.util.Log;
+import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -19,16 +21,13 @@ import androidx.appcompat.widget.SwitchCompat;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
-import com.google.android.material.button.MaterialButton;
-import com.google.android.material.textfield.TextInputEditText;
-
 import java.util.ArrayList;
 import java.util.List;
 
 /**
  * Main dashboard for Slot Hunter SMS Gateway.
- * Provides controls for master forwarding switch, dual SIM configuration,
- * SIM auto-detection, and status monitoring.
+ * Provides controls for master gateway switch, unified dual SIM routing,
+ * automatic SIM detection on cold launch, and inline quick-save actions.
  */
 public class MainActivity extends AppCompatActivity {
 
@@ -38,11 +37,10 @@ public class MainActivity extends AppCompatActivity {
     private GatewaySettings settings;
     private SwitchCompat switchMaster;
     private TextView textStatus;
-    private TextView textLogStatus;
-    private TextInputEditText inputSim1;
-    private TextInputEditText inputSim2;
-    private MaterialButton btnAutoDetect;
-    private MaterialButton btnSave;
+    private EditText inputSim1;
+    private EditText inputSim2;
+    private ImageButton btnSaveSim1;
+    private ImageButton btnSaveSim2;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -55,6 +53,13 @@ public class MainActivity extends AppCompatActivity {
         loadSettings();
         checkAndRequestPermissions();
 
+        // If permissions are already granted and no numbers configured, auto-detect on startup
+        if (hasPhonePermissions()) {
+            if (settings.getSim1Number().isEmpty() && settings.getSim2Number().isEmpty()) {
+                autoDetectAndSaveSims(false);
+            }
+        }
+
         if (settings.isForwardingEnabled()) {
             SmsReceiverService.start(this);
         }
@@ -63,22 +68,23 @@ public class MainActivity extends AppCompatActivity {
     private void initViews() {
         switchMaster = findViewById(R.id.switch_master);
         textStatus = findViewById(R.id.text_status);
-        textLogStatus = findViewById(R.id.text_log_status);
         inputSim1 = findViewById(R.id.input_sim1);
         inputSim2 = findViewById(R.id.input_sim2);
-        btnAutoDetect = findViewById(R.id.btn_auto_detect);
-        btnSave = findViewById(R.id.btn_save);
+        btnSaveSim1 = findViewById(R.id.btn_save_sim1);
+        btnSaveSim2 = findViewById(R.id.btn_save_sim2);
 
         switchMaster.setOnCheckedChangeListener((buttonView, isChecked) -> {
             settings.setForwardingEnabled(isChecked);
             updateStatusUi(isChecked);
             if (isChecked) {
                 SmsReceiverService.start(MainActivity.this);
+            } else {
+                SmsReceiverService.stop(MainActivity.this);
             }
         });
 
-        btnSave.setOnClickListener(v -> saveSettings());
-        btnAutoDetect.setOnClickListener(v -> detectSimNumbers());
+        btnSaveSim1.setOnClickListener(v -> saveSim1());
+        btnSaveSim2.setOnClickListener(v -> saveSim2());
     }
 
     private void loadSettings() {
@@ -93,48 +99,46 @@ public class MainActivity extends AppCompatActivity {
     private void updateStatusUi(boolean isEnabled) {
         if (isEnabled) {
             textStatus.setText(R.string.status_active);
-            textStatus.setTextColor(ContextCompat.getColor(this, R.color.colorPrimary));
-            textLogStatus.setText(R.string.status_listening);
+            textStatus.setTextColor(ContextCompat.getColor(this, R.color.colorSuccess));
         } else {
             textStatus.setText(R.string.status_inactive);
             textStatus.setTextColor(ContextCompat.getColor(this, R.color.colorDanger));
-            textLogStatus.setText(R.string.status_paused);
         }
     }
 
-    private void saveSettings() {
-        String rawSim1 = inputSim1.getText() != null ? inputSim1.getText().toString() : "";
-        String rawSim2 = inputSim2.getText() != null ? inputSim2.getText().toString() : "";
-
-        // Normalize both phone numbers (strips +88, 88, dashes, spaces)
-        String normSim1 = GatewaySettings.normalizePhoneNumber(rawSim1);
-        String normSim2 = GatewaySettings.normalizePhoneNumber(rawSim2);
-
-        // Update the input fields with the clean formatted numbers
-        inputSim1.setText(normSim1);
-        inputSim2.setText(normSim2);
-
-        settings.setSim1Number(normSim1);
-        settings.setSim2Number(normSim2);
-
-        Toast.makeText(this, R.string.toast_saved, Toast.LENGTH_SHORT).show();
-        Log.i(TAG, "Saved SIM 1: " + normSim1 + ", SIM 2: " + normSim2);
+    private void saveSim1() {
+        String raw = inputSim1.getText() != null ? inputSim1.getText().toString() : "";
+        String clean = GatewaySettings.normalizePhoneNumber(raw);
+        inputSim1.setText(clean);
+        settings.setSim1Number(clean);
+        Toast.makeText(this, R.string.toast_sim1_saved, Toast.LENGTH_SHORT).show();
+        Log.i(TAG, "Saved SIM 1: " + clean);
     }
 
-    private void detectSimNumbers() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED ||
-            ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_NUMBERS) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(
-                    this,
-                    new String[]{Manifest.permission.READ_PHONE_STATE, Manifest.permission.READ_PHONE_NUMBERS},
-                    PERMISSION_REQUEST_CODE
-            );
+    private void saveSim2() {
+        String raw = inputSim2.getText() != null ? inputSim2.getText().toString() : "";
+        String clean = GatewaySettings.normalizePhoneNumber(raw);
+        inputSim2.setText(clean);
+        settings.setSim2Number(clean);
+        Toast.makeText(this, R.string.toast_sim2_saved, Toast.LENGTH_SHORT).show();
+        Log.i(TAG, "Saved SIM 2: " + clean);
+    }
+
+    private boolean hasPhonePermissions() {
+        return ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED
+                && ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_NUMBERS) == PackageManager.PERMISSION_GRANTED;
+    }
+
+    /**
+     * Automatically resolves SIM slot numbers from hardware and saves them if found.
+     */
+    private void autoDetectAndSaveSims(boolean showToast) {
+        if (!hasPhonePermissions()) {
             return;
         }
 
         try {
             boolean detectedAny = false;
-            StringBuilder detectedCarrierNames = new StringBuilder();
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
                 SubscriptionManager subManager =
@@ -145,14 +149,7 @@ public class MainActivity extends AppCompatActivity {
                     if (subs != null && !subs.isEmpty()) {
                         for (SubscriptionInfo info : subs) {
                             int simSlotIndex = info.getSimSlotIndex();
-                            String carrierName = String.valueOf(info.getDisplayName());
-                            if (detectedCarrierNames.length() > 0) {
-                                detectedCarrierNames.append(", ");
-                            }
-                            detectedCarrierNames.append(carrierName);
-
                             String number = "";
-                            // On Android 13+ (API 33), try SubscriptionManager.getPhoneNumber(subId)
                             if (Build.VERSION.SDK_INT >= 33) {
                                 try {
                                     number = subManager.getPhoneNumber(info.getSubscriptionId());
@@ -167,9 +164,11 @@ public class MainActivity extends AppCompatActivity {
                                 if (!clean.isEmpty()) {
                                     if (simSlotIndex == 0) {
                                         inputSim1.setText(clean);
+                                        settings.setSim1Number(clean);
                                         detectedAny = true;
                                     } else if (simSlotIndex == 1) {
                                         inputSim2.setText(clean);
+                                        settings.setSim2Number(clean);
                                         detectedAny = true;
                                     }
                                 }
@@ -188,22 +187,18 @@ public class MainActivity extends AppCompatActivity {
                         String clean = GatewaySettings.normalizePhoneNumber(line1);
                         if (!clean.isEmpty()) {
                             inputSim1.setText(clean);
+                            settings.setSim1Number(clean);
                             detectedAny = true;
                         }
                     }
                 }
             }
 
-            if (detectedAny) {
-                Toast.makeText(this, R.string.toast_sims_detected, Toast.LENGTH_SHORT).show();
-            } else {
-                String msg = "Active SIM(s) detected: " + detectedCarrierNames.toString() +
-                        ". Please verify or enter your numbers.";
-                Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
+            if (detectedAny && showToast) {
+                Toast.makeText(this, R.string.toast_sims_auto_detected, Toast.LENGTH_SHORT).show();
             }
         } catch (Exception e) {
-            Log.e(TAG, "Error detecting SIMs: " + e.getMessage(), e);
-            Toast.makeText(this, R.string.toast_sims_not_detected, Toast.LENGTH_SHORT).show();
+            Log.e(TAG, "Error in autoDetectAndSaveSims: " + e.getMessage(), e);
         }
     }
 
@@ -252,7 +247,11 @@ public class MainActivity extends AppCompatActivity {
                     break;
                 }
             }
-            if (!allGranted) {
+            if (allGranted) {
+                if (settings.getSim1Number().isEmpty() && settings.getSim2Number().isEmpty()) {
+                    autoDetectAndSaveSims(true);
+                }
+            } else {
                 Toast.makeText(this, R.string.permission_needed, Toast.LENGTH_LONG).show();
             }
         }

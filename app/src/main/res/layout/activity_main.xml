@@ -14,63 +14,55 @@
         android:orientation="vertical"
         android:padding="16dp">
 
-        <!-- Master Switch Card -->
+        <!-- 1. Master Gateway Switch Card -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="12dp"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="2dp"
+            android:layout_marginBottom="14dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp"
+            app:strokeWidth="1dp"
+            app:strokeColor="@color/colorInputBorder"
             app:cardBackgroundColor="@color/colorSurface">
 
-            <LinearLayout
+            <RelativeLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <RelativeLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content">
-
-                    <TextView
-                        android:id="@+id/text_status"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_alignParentStart="true"
-                        android:layout_centerVertical="true"
-                        android:layout_toStartOf="@+id/switch_master"
-                        android:text="@string/status_active"
-                        android:textColor="@color/colorPrimary"
-                        android:textSize="17sp"
-                        android:textStyle="bold" />
-
-                    <androidx.appcompat.widget.SwitchCompat
-                        android:id="@+id/switch_master"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_alignParentEnd="true"
-                        android:layout_centerVertical="true"
-                        android:checked="true" />
-                </RelativeLayout>
+                android:paddingStart="18dp"
+                android:paddingEnd="18dp"
+                android:paddingTop="16dp"
+                android:paddingBottom="16dp">
 
                 <TextView
-                    android:layout_width="match_parent"
+                    android:id="@+id/text_status"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:text="@string/desc_master_toggle"
-                    android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="13sp" />
-            </LinearLayout>
+                    android:layout_alignParentStart="true"
+                    android:layout_centerVertical="true"
+                    android:layout_toStartOf="@+id/switch_master"
+                    android:text="@string/status_active"
+                    android:textColor="@color/colorPrimary"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/switch_master"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_alignParentEnd="true"
+                    android:layout_centerVertical="true"
+                    android:checked="true" />
+            </RelativeLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- SIM 1 Card -->
+        <!-- 2. Unified SIM Routing Card with Inline Save Actions -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="12dp"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="2dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp"
+            app:strokeWidth="1dp"
+            app:strokeColor="@color/colorInputBorder"
             app:cardBackgroundColor="@color/colorSurface">
 
             <LinearLayout
@@ -82,130 +74,140 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/label_sim1_section"
+                    android:layout_marginBottom="14dp"
+                    android:text="@string/label_sim_section"
                     style="@style/AppTheme.SectionHeader" />
 
-                <com.google.android.material.textfield.TextInputLayout
+                <!-- SIM 1 Row -->
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:importantForAutofill="no"
-                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
 
-                    <com.google.android.material.textfield.TextInputEditText
+                    <!-- SIM 1 Pill Badge -->
+                    <LinearLayout
+                        android:layout_width="68dp"
+                        android:layout_height="38dp"
+                        android:gravity="center"
+                        android:orientation="horizontal"
+                        android:background="@drawable/bg_badge_sim1">
+
+                        <ImageView
+                            android:layout_width="14dp"
+                            android:layout_height="14dp"
+                            android:src="@drawable/ic_sim_card"
+                            app:tint="@color/colorSim1Text" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="4dp"
+                            android:text="@string/label_sim1"
+                            android:textColor="@color/colorSim1Text"
+                            android:textSize="12sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <!-- SIM 1 Input (No placeholder, compact flat) -->
+                    <EditText
                         android:id="@+id/input_sim1"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:hint="@string/hint_sim1_number"
+                        android:layout_width="0dp"
+                        android:layout_height="44dp"
+                        android:layout_weight="1"
+                        android:layout_marginStart="8dp"
+                        android:layout_marginEnd="8dp"
+                        android:background="@drawable/bg_input_field"
                         android:inputType="phone"
-                        android:importantForAutofill="no"
-                        android:maxLines="1" />
-                </com.google.android.material.textfield.TextInputLayout>
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
+                        android:maxLines="1"
+                        android:paddingStart="12dp"
+                        android:paddingEnd="12dp"
+                        android:textColor="?android:attr/textColorPrimary"
+                        android:textSize="15sp"
+                        android:fontFamily="sans-serif-medium"
+                        android:importantForAutofill="no" />
 
-        <!-- SIM 2 Card -->
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="2dp"
-            app:cardBackgroundColor="@color/colorSurface">
+                    <!-- SIM 1 Inline Save Button -->
+                    <ImageButton
+                        android:id="@+id/btn_save_sim1"
+                        android:layout_width="44dp"
+                        android:layout_height="44dp"
+                        android:background="@drawable/bg_btn_save"
+                        android:src="@drawable/ic_check_save"
+                        app:tint="@color/colorSaveBtnIcon"
+                        android:padding="10dp"
+                        android:contentDescription="Save SIM 1" />
+                </LinearLayout>
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
+                <!-- Modern Subtle Divider -->
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="14dp"
+                    android:layout_marginBottom="14dp"
+                    android:background="@color/colorDivider" />
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/label_sim2_section"
-                    style="@style/AppTheme.SectionHeader" />
-
-                <com.google.android.material.textfield.TextInputLayout
+                <!-- SIM 2 Row -->
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:importantForAutofill="no"
-                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
 
-                    <com.google.android.material.textfield.TextInputEditText
+                    <!-- SIM 2 Pill Badge -->
+                    <LinearLayout
+                        android:layout_width="68dp"
+                        android:layout_height="38dp"
+                        android:gravity="center"
+                        android:orientation="horizontal"
+                        android:background="@drawable/bg_badge_sim2">
+
+                        <ImageView
+                            android:layout_width="14dp"
+                            android:layout_height="14dp"
+                            android:src="@drawable/ic_sim_card"
+                            app:tint="@color/colorSim2Text" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="4dp"
+                            android:text="@string/label_sim2"
+                            android:textColor="@color/colorSim2Text"
+                            android:textSize="12sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <!-- SIM 2 Input (No placeholder, compact flat) -->
+                    <EditText
                         android:id="@+id/input_sim2"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:hint="@string/hint_sim2_number"
+                        android:layout_width="0dp"
+                        android:layout_height="44dp"
+                        android:layout_weight="1"
+                        android:layout_marginStart="8dp"
+                        android:layout_marginEnd="8dp"
+                        android:background="@drawable/bg_input_field"
                         android:inputType="phone"
-                        android:importantForAutofill="no"
-                        android:maxLines="1" />
-                </com.google.android.material.textfield.TextInputLayout>
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
+                        android:maxLines="1"
+                        android:paddingStart="12dp"
+                        android:paddingEnd="12dp"
+                        android:textColor="?android:attr/textColorPrimary"
+                        android:textSize="15sp"
+                        android:fontFamily="sans-serif-medium"
+                        android:importantForAutofill="no" />
 
-        <!-- Action Buttons -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginBottom="16dp">
+                    <!-- SIM 2 Inline Save Button -->
+                    <ImageButton
+                        android:id="@+id/btn_save_sim2"
+                        android:layout_width="44dp"
+                        android:layout_height="44dp"
+                        android:background="@drawable/bg_btn_save"
+                        android:src="@drawable/ic_check_save"
+                        app:tint="@color/colorSaveBtnIcon"
+                        android:padding="10dp"
+                        android:contentDescription="Save SIM 2" />
+                </LinearLayout>
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_auto_detect"
-                android:layout_width="0dp"
-                android:layout_height="52dp"
-                android:layout_weight="1"
-                android:layout_marginEnd="6dp"
-                android:text="@string/btn_auto_detect"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_save"
-                android:layout_width="0dp"
-                android:layout_height="52dp"
-                android:layout_weight="1"
-                android:layout_marginStart="6dp"
-                android:text="@string/btn_save"
-                app:backgroundTint="@color/colorPrimary" />
-        </LinearLayout>
-
-        <!-- Status & Logs Card -->
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="2dp"
-            app:cardBackgroundColor="@color/colorSurface">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/label_status_section"
-                    style="@style/AppTheme.SectionHeader" />
-
-                <TextView
-                    android:id="@+id/text_log_status"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="@string/status_listening"
-                    android:textColor="?android:attr/textColorPrimary"
-                    android:textSize="13sp" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="@string/status_target_endpoint"
-                    android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="12sp" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
